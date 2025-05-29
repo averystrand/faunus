@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Referral Tracker</title>
+  <link rel="icon" href="data:,"> <!-- Prevents favicon 404 -->
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; background: #f7f7f7; }
     input { padding: 10px; font-size: 16px; width: 300px; margin-bottom: 20px; }
@@ -18,77 +19,62 @@
   <div id="results"></div>
 
   <script>
+    let cachedData = null;
+
     async function fetchData() {
-      console.log("🔍 Fetching from Google Sheets...");
-      const response = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSXPejYvipx10TKEX5iaSphx_gIZOGIzo7S5R5H8b6aHAMNFm3jjAYqCdmN8ErXdQpwNCcHdNy9U5hC/pub?output=csv");
-      const text = await response.text();
-      const parsed = Papa.parse(text, { header: true });
-      const filtered = parsed.data.filter(entry =>
-        entry['Relationship']?.trim().toLowerCase() === "can intro" &&
-        entry['Prospect Name'] &&
-        entry['Prospect Company'] &&
-        entry['Referrer Name']
-      );
-      console.log("Fetched and parsed data:", filtered);
-      return filtered;
-    }
+      if (cachedData) return cachedData;
 
-    let cachedData = [];
-document.getElementById('searchInput').addEventListener('keydown', async function(e) {
-  if (e.key === 'Enter') {
-    const query = this.value.trim().toLowerCase();
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = '';
-
-    try {
-      const data = await fetchData();
-      const grouped = {};
-
-      data.forEach(entry => {
-        const key = entry['Prospect Name'] + '|' + entry['Prospect Company'] + '|' + entry['Prospect Title'] + '|' + entry['Prospect Linkedin'];
-        if (!grouped[key]) {
-          grouped[key] = {
-            name: entry['Prospect Name'],
-            company: entry['Prospect Company'],
-            title: entry['Prospect Title'],
-            linkedin: entry['Prospect Linkedin'],
-            referrers: new Set()
-          };
-        }
-        grouped[key].referrers.add(entry['Referrer Name']);
-      });
-
-      for (const key in grouped) {
-        const entry = grouped[key];
-        const match =
-          entry.name?.toLowerCase().includes(query) ||
-          entry.company?.toLowerCase().includes(query) ||
-          entry.title?.toLowerCase().includes(query);
-
-        if (!match) continue;
-        const div = document.createElement('div');
-        div.className = 'result';
-        div.innerHTML = `
-          <h2><a href="${entry.linkedin}" target="_blank">${entry.name}</a></h2>
-          <div>${entry.title} @ ${entry.company}</div>
-          <div class="referrers">Can intro: ${Array.from(entry.referrers).join(', ')}</div>
-        `;
-        resultsDiv.appendChild(div);
+      try {
+        const response = await fetch("https://docs.google.com/spreadsheets/d/e/2PACX-1vSXPejYvipx10TKEX5iaSphx_gIZOGIzo7S5R5H8b6aHAMNFm3jjAYqCdmN8ErXdQpwNCcHdNy9U5hC/pub?output=csv");
+        const text = await response.text();
+        const parsed = Papa.parse(text, { header: true });
+        cachedData = parsed.data.filter(entry =>
+          entry['Relationship']?.trim().toLowerCase() === "can intro" &&
+          entry['Prospect Name'] &&
+          entry['Prospect Company'] &&
+          entry['Referrer Name']
+        );
+        return cachedData;
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        return [];
       }
-    } catch (err) {
-      console.error("Error loading or parsing data:", err);
     }
-  }
-});
 
-        for (const key in grouped) {
-          const entry = grouped[key];
+    document.getElementById('searchInput').addEventListener('keydown', async function(e) {
+      if (e.key !== 'Enter') return;
+
+      const query = this.value.trim().toLowerCase();
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+
+      try {
+        const data = await fetchData();
+        const grouped = {};
+
+        data.forEach(entry => {
+          const key = `${entry['Prospect Name']}|${entry['Prospect Company']}|${entry['Prospect Title']}|${entry['Prospect Linkedin']}`;
+          if (!grouped[key]) {
+            grouped[key] = {
+              name: entry['Prospect Name'],
+              company: entry['Prospect Company'],
+              title: entry['Prospect Title'],
+              linkedin: entry['Prospect Linkedin'],
+              referrers: new Set()
+            };
+          }
+          grouped[key].referrers.add(entry['Referrer Name']);
+        });
+
+        Object.values(grouped).forEach(entry => {
           const match =
             entry.name?.toLowerCase().includes(query) ||
             entry.company?.toLowerCase().includes(query) ||
-            entry.title?.toLowerCase().includes(query);
+            entry.title?.toLowerCase().includes(query) ||
+            Array.from(entry.referrers).some(ref => ref.toLowerCase().includes(query));
 
-          if (!match) continue;
+          if (!match) return;
+
           const div = document.createElement('div');
           div.className = 'result';
           div.innerHTML = `
@@ -97,7 +83,7 @@ document.getElementById('searchInput').addEventListener('keydown', async functio
             <div class="referrers">Can intro: ${Array.from(entry.referrers).join(', ')}</div>
           `;
           resultsDiv.appendChild(div);
-        }
+        });
       } catch (err) {
         console.error("Error loading or parsing data:", err);
       }
