@@ -61,10 +61,9 @@
           const match =
             entry.name.toLowerCase().includes(query) ||
             entry.company.toLowerCase().includes(query) ||
-            Array.from(entry.referrers).some(r => r.toLowerCase().includes(query));
+            false;
 
           if (!match) continue;
-          const entry = grouped[key];
           const div = document.createElement('div');
           div.className = 'result';
           div.innerHTML = `
