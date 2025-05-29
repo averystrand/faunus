@@ -43,25 +43,27 @@
         const grouped = {};
 
         data.forEach(entry => {
-          const match = entry['Prospect Name']?.toLowerCase().includes(query) ||
-                        entry['Prospect Company']?.toLowerCase().includes(query) ||
-                        entry['Referrer Name']?.toLowerCase().includes(query);
-
-          if (match) {
-            const key = entry['Prospect Name'] + '|' + entry['Prospect Company'] + '|' + entry['Prospect Title'] + '|' + entry['Prospect Linkedin'];
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(entry['Referrer Name']);
+          const key = entry['Prospect Name'] + '|' + entry['Prospect Company'] + '|' + entry['Prospect Title'] + '|' + entry['Prospect Linkedin'];
+          if (!grouped[key]) {
+            grouped[key] = {
+              name: entry['Prospect Name'],
+              company: entry['Prospect Company'],
+              title: entry['Prospect Title'],
+              linkedin: entry['Prospect Linkedin'],
+              referrers: new Set()
+            };
           }
+          grouped[key].referrers.add(entry['Referrer Name']);
         });
 
         for (const key in grouped) {
-          const [prospect, company, title, linkedin] = key.split('|');
+          const entry = grouped[key];
           const div = document.createElement('div');
           div.className = 'result';
           div.innerHTML = `
-            <h2><a href="${linkedin}" target="_blank">${prospect}</a></h2>
-            <div>${title} @ ${company}</div>
-            <div class="referrers">Can intro: ${grouped[key].join(', ')}</div>
+            <h2><a href="${entry.linkedin}" target="_blank">${entry.name}</a></h2>
+            <div>${entry.title} @ ${entry.company}</div>
+            <div class="referrers">Can intro: ${Array.from(entry.referrers).join(', ')}</div>
           `;
           resultsDiv.appendChild(div);
         }
